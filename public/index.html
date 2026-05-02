@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>五子棋联机版 - Cloudflare</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .game-area {
+            text-align: center;
+        }
+
+        canvas {
+            border: 2px solid #333;
+            border-radius: 5px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            cursor: pointer;
+            background-color: #f7e6c4;
+        }
+
+        .info-panel {
+            min-width: 250px;
+            padding: 20px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .room-section {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .game-status {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .status-text {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .player-info {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 10px;
+        }
+
+        .player {
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+
+        .player.black {
+            background: #333;
+            color: white;
+        }
+
+        .player.white {
+            background: #fff;
+            color: #333;
+            border: 2px solid #333;
+        }
+
+        .player.active {
+            box-shadow: 0 0 0 3px #ffd700;
+        }
+
+        .reset-btn {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            margin-top: 10px;
+        }
+
+        .message {
+            background: #ffeaa7;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 14px;
+            text-align: center;
+            animation: fadeIn 0.5s;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        .connection-status {
+            font-size: 12px;
+            padding: 5px;
+            border-radius: 5px;
+            margin-top: 10px;
+            text-align: center;
+        }
+        
+        .connected {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .disconnected {
+            background: #f44336;
+            color: white;
+        }
+        
+        .connecting {
+            background: #FF9800;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="game-area">
+            <canvas id="boardCanvas" width="600" height="600"></canvas>
+        </div>
+        
+        <div class="info-panel">
+            <div class="room-section">
+                <h3>🎮 房间系统</h3>
+                <div class="input-group">
+                    <label>房间号</label>
+                    <input type="text" id="roomId" placeholder="输入房间号（相同房间号匹配）" maxlength="20">
+                </div>
+                <div class="input-group">
+                    <label>玩家名</label>
+                    <input type="text" id="playerName" placeholder="输入你的名字" maxlength="20">
+                </div>
+                <button id="joinBtn">🎯 加入房间</button>
+                <button id="leaveBtn" style="background: #dc3545; margin-top: 10px;" disabled>🚪 离开房间</button>
+            </div>
+            
+            <div class="game-status">
+                <div class="status-text" id="status">等待加入房间...</div>
+                <div class="player-info" id="playerInfo"></div>
+                <button id="resetBtn" class="reset-btn" disabled>🔄 重置游戏</button>
+            </div>
+            
+            <div id="messageArea"></div>
+            <div id="connectionStatus" class="connection-status connecting">⚡ 连接中...</div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let currentRoom = null;
+        let currentPlayer = null;
+        let gameState = Array(15).fill().map(() => Array(15).fill(null));
+        let currentTurn = null;
+        let gameActive = false;
+        let myColor = null;
+        let myPlayerId = null;
+        
+        const canvas = document.getElementById('boardCanvas');
+        const ctx = canvas.getContext('2d');
+        const cellSize = canvas.width / 15;
+        
+        function drawBoard() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制网格
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < 15; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * cellSize, 0);
+                ctx.lineTo(i * cellSize, canvas.height);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(0, i * cellSize);
+                ctx.lineTo(canvas.width, i * cellSize);
+                ctx.stroke();
+            }
+            
+            // 绘制星位
+            const stars = [[3,3], [11,3], [7,7], [3,11], [11,11]];
+            stars.forEach(([x, y]) => {
+                ctx.fillStyle = '#333';
+                ctx.beginPath();
+                ctx.arc(x * cellSize, y * cellSize, 5, 0, 2 * Math.PI);
+                ctx.fill();
+            });
+            
+            // 绘制棋子
+            for (let i = 0; i < 15; i++) {
+                for (let j = 0; j < 15; j++) {
+                    if (gameState[i] && gameState[i][j]) {
+                        const gradient = ctx.createRadialGradient(
+                            j * cellSize + 10, i * cellSize + 10, 5,
+                            j * cellSize + 15, i * cellSize + 15, 15
+                        );
+                        if (gameState[i][j] === 'black') {
+                            gradient.addColorStop(0, '#333');
+                            gradient.addColorStop(1, '#000');
+                        } else {
+                            gradient.addColorStop(0, '#fff');
+                            gradient.addColorStop(1, '#ddd');
+                        }
+                        ctx.fillStyle = gradient;
+                        ctx.beginPath();
+                        ctx.arc(j * cellSize + cellSize/2, i * cellSize + cellSize/2, cellSize * 0.4, 0, 2 * Math.PI);
+                        ctx.fill();
+                        ctx.strokeStyle = '#666';
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+        
+        function connectWebSocket(roomId, playerName) {
+            const wsUrl = `wss://${window.location.host}/ws?roomId=${encodeURIComponent(roomId)}`;
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = () => {
+                console.log('WebSocket 连接成功');
+                document.getElementById('connectionStatus').className = 'connection-status connected';
+                document.getElementById('connectionStatus').textContent = '✅ 已连接';
+                
+                // 发送加入房间消息
+                ws.send(JSON.stringify({
+                    type: 'join',
+                    name: playerName
+                }));
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleMessage(data);
+            };
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket 错误:', error);
+                document.getElementById('connectionStatus').className = 'connection-status disconnected';
+                document.getElementById('connectionStatus').textContent = '❌ 连接错误';
+                showMessage('连接错误，请刷新页面重试', true);
+            };
+            
+            ws.onclose = () => {
+                console.log('WebSocket 断开');
+                document.getElementById('connectionStatus').className = 'connection-status disconnected';
+                document.getElementById('connectionStatus').textContent = '🔌 已断开';
+                gameActive = false;
+            };
+        }
+        
+        function handleMessage(data) {
+            switch (data.type) {
+                case 'joined':
+                    myColor = data.color;
+                    myPlayerId = data.playerId;
+                    showMessage(`成功加入房间！你是${myColor === 'black' ? '黑棋' : '白棋'}`);
+                    break;
+                    
+                case 'playerJoined':
+                    showMessage(`${data.name} 加入了房间`);
+                    break;
+                    
+                case 'gameStart':
+                    gameActive = true;
+                    currentTurn = data.currentPlayer;
+                    if (data.gameState) gameState = data.gameState;
+                    drawBoard();
+                    updateUI();
+                    document.getElementById('resetBtn').disabled = false;
+                    showMessage(data.message);
+                    break;
+                    
+                case 'moveMade':
+                    gameState = data.gameState;
+                    currentTurn = data.currentPlayer;
+                    drawBoard();
+                    updateUI();
+                    break;
+                    
+                case 'gameEnd':
+                    gameActive = false;
+                    const winner = data.winner === myColor ? '你赢了！' : '对手赢了！';
+                    showMessage(`游戏结束！${winner}`);
+                    document.getElementById('status').textContent = `游戏结束 - ${winner}`;
+                    document.getElementById('resetBtn').disabled = false;
+                    break;
+                    
+                case 'gameReset':
+                    gameState = data.gameState;
+                    currentTurn = data.currentPlayer;
+                    gameActive = true;
+                    drawBoard();
+                    updateUI();
+                    showMessage('游戏已重置');
+                    break;
+                    
+                case 'playerLeft':
+                    gameActive = false;
+                    showMessage(`${data.name} 离开了房间，等待新玩家...`);
+                    document.getElementById('status').textContent = '等待对手重新加入...';
+                    document.getElementById('resetBtn').disabled = true;
+                    break;
+                    
+                case 'stateUpdate':
+                    if (data.players) {
+                        document.getElementById('playerInfo').innerHTML = data.players.map(p => 
+                            `<div class="player ${p.color} ${myColor === p.color ? 'active' : ''}">
+                                🎴 ${p.color === 'black' ? '黑棋' : '白棋'} ${myColor === p.color ? '(你)' : `(${p.name})`}
+                            </div>`
+                        ).join('');
+                    }
+                    if (data.gameStarted !== undefined) gameActive = data.gameStarted;
+                    if (data.currentPlayer !== undefined) currentTurn = data.currentPlayer;
+                    updateUI();
+                    break;
+                    
+                case 'error':
+                    showMessage(data.message, true);
+                    break;
+            }
+        }
+        
+        canvas.addEventListener('click', (e) => {
+            if (!gameActive || currentTurn !== myColor || !ws || ws.readyState !== WebSocket.OPEN) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+            
+            const col = Math.round(x / cellSize);
+            const row = Math.round(y / cellSize);
+            
+            if (row >= 0 && row < 15 && col >= 0 && col < 15 && !gameState[row][col]) {
+                ws.send(JSON.stringify({
+                    type: 'move',
+                    row: row,
+                    col: col
+                }));
+            }
+        });
+        
+        function showMessage(msg, isError = false) {
+            const messageArea = document.getElementById('messageArea');
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message';
+            msgDiv.style.background = isError ? '#ff7675' : '#55efc4';
+            msgDiv.style.color = isError ? 'white' : '#333';
+            msgDiv.textContent = msg;
+            messageArea.appendChild(msgDiv);
+            setTimeout(() => msgDiv.remove(), 3000);
+        }
+        
+        function updateUI() {
+            const statusDiv = document.getElementById('status');
+            
+            if (!gameActive) {
+                statusDiv.textContent = '等待对手加入...';
+                statusDiv.style.color = '#FF9800';
+                return;
+            }
+            
+            if (currentTurn === myColor) {
+                statusDiv.textContent = '轮到你了！';
+                statusDiv.style.color = '#4CAF50';
+            } else {
+                statusDiv.textContent = '等待对手下棋...';
+                statusDiv.style.color = '#FF9800';
+            }
+        }
+        
+        document.getElementById('joinBtn').addEventListener('click', () => {
+            const roomId = document.getElementById('roomId').value.trim();
+            const playerName = document.getElementById('playerName').value.trim();
+            
+            if (!roomId) {
+                showMessage('请输入房间号', true);
+                return;
+            }
+            if (!playerName) {
+                showMessage('请输入玩家名', true);
+                return;
+            }
+            
+            currentRoom = roomId;
+            connectWebSocket(roomId, playerName);
+            
+            document.getElementById('joinBtn').disabled = true;
+            document.getElementById('leaveBtn').disabled = false;
+        });
+        
+        document.getElementById('leaveBtn').addEventListener('click', () => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'leave' }));
+                ws.close();
+            }
+            
+            currentRoom = null;
+            gameActive = false;
+            currentTurn = null;
+            myColor = null;
+            gameState = Array(15).fill().map(() => Array(15).fill(null));
+            drawBoard();
+            
+            document.getElementById('joinBtn').disabled = false;
+            document.getElementById('leaveBtn').disabled = true;
+            document.getElementById('resetBtn').disabled = true;
+            document.getElementById('status').textContent = '等待加入房间...';
+            document.getElementById('playerInfo').innerHTML = '';
+            document.getElementById('connectionStatus').className = 'connection-status connecting';
+            document.getElementById('connectionStatus').textContent = '⚡ 连接中...';
+            showMessage('已离开房间');
+        });
+        
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            if (ws && ws.readyState === WebSocket.OPEN && gameActive) {
+                ws.send(JSON.stringify({ type: 'reset' }));
+                showMessage('请求重置游戏');
+            }
+        });
+        
+        drawBoard();
+    </script>
+</body>
+</html>

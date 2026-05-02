@@ -1,0 +1,18 @@
+name = "gobang-game"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+# Durable Objects 配置
+[[durable_objects.bindings]]
+name = "GAME_ROOM"
+class_name = "GameRoom"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["GameRoom"]
+
+# 静态资源配置
+[env.production]
+[env.production.assets]
+directory = "./public"
+binding = "ASSETS"
