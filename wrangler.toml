@@ -2,12 +2,10 @@ name = "goband"
 main = "src/index.js"
 compatibility_date = "2025-03-01"
 
-# Durable Objects 绑定
 [[durable_objects.bindings]]
 name = "GAME_ROOM"
 class_name = "GameRoom"
 
-# 迁移配置
 [[migrations]]
 tag = "v1"
-new_classes = ["GameRoom"]
+new_sqlite_classes = ["GameRoom"]
