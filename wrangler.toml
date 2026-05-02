@@ -1,17 +1,13 @@
 name = "goband"
-main = "src/index.js"  # 根据你的实际入口文件修改
+main = "src/index.js"
 compatibility_date = "2025-03-01"
 
-# 添加兼容性标志
-compatibility_flags = ["sqlite_durable_objects"]
-
-# Durable Objects 绑定
+# Durable Objects 绑定（删除 storage_backend）
 [[durable_objects.bindings]]
 name = "GAME_ROOM"
 class_name = "GameRoom"
-storage_backend = "sqlite"
 
-# 迁移配置
+# 迁移配置（使用 new_classes，不是 new_sqlite_classes）
 [[migrations]]
 tag = "v1"
-new_sqlite_classes = ["GameRoom"]
+new_classes = ["GameRoom"]
